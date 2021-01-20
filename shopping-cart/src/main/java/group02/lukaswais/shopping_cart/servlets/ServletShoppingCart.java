@@ -10,6 +10,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.sql.SQLException;
 
 /**
  * Servlet for the shopping cart.
@@ -19,10 +20,14 @@ import java.io.PrintWriter;
  */
 @WebServlet(name = "ServletShoppingCart", value = "/ShoppingCart")
 public class ServletShoppingCart extends HttpServlet {
-    private final Controller controller;
+    private Controller controller;
 
-    public ServletShoppingCart() throws ClassNotFoundException {
-        controller = new Controller();
+    public void init() {
+        try {
+            controller = new Controller();
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
@@ -32,7 +37,7 @@ public class ServletShoppingCart extends HttpServlet {
     }
 
     @Override
-    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
         String action = request.getParameter("action");
 
         switch (action) {
@@ -40,13 +45,13 @@ public class ServletShoppingCart extends HttpServlet {
                 getAll(response);
                 break;
             case "insert":
-                String user = request.getParameter("user");
-                String IBAN = request.getParameter("IBAN");
-                insert(user, IBAN);
+                insert(response, request.getParameter("user"), request.getParameter("IBAN"));
+                break;
+            case "delete":
+                delete(response, request.getParameter("user"), request.getParameter("IBAN"));
                 break;
             case "getUser":
-                user = request.getParameter("user");
-                getBooksFromUser(response, user);
+                getBooksFromUser(response, request.getParameter("user"));
             case "test":
                 test(response);
                 break;
@@ -60,21 +65,23 @@ public class ServletShoppingCart extends HttpServlet {
     private void getAll(HttpServletResponse response) {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
+        response.addHeader("Access-Control-Allow-Origin", "*");
 
         try (PrintWriter writer = response.getWriter()) {
             writer.println(controller.getJsonItems());
-        } catch (IOException e) {
+        } catch (IOException | SQLException e) {
             errorMessage(response, e.getMessage());
         }
     }
 
     private void test(HttpServletResponse response) {
-        response.setContentType("text");
+        response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
+        response.addHeader("Access-Control-Allow-Origin", "*");
 
         try (PrintWriter writer = response.getWriter()) {
             writer.println(controller.test());
-        } catch (IOException e) {
+        } catch (IOException | ClassNotFoundException | SQLException e) {
             errorMessage(response, e.getMessage());
         }
     }
@@ -82,6 +89,7 @@ public class ServletShoppingCart extends HttpServlet {
     private void getBooksFromUser(HttpServletResponse response, String user) {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
+        response.addHeader("Access-Control-Allow-Origin", "*");
 
         try (PrintWriter writer = response.getWriter()) {
             String json = controller.getJsonBooksFromUser(user);
@@ -90,18 +98,41 @@ public class ServletShoppingCart extends HttpServlet {
             } else {
                 writer.println(json);
             }
-        } catch (IOException e) {
+        } catch (IOException | SQLException e) {
             errorMessage(response, e.getMessage());
         }
     }
 
-    private void insert(String user, String IBAN) {
+    private void delete(HttpServletResponse response, String user, String IBAN) {
+        controller.deleteFromCart(user, IBAN);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        response.addHeader("Access-Control-Allow-Origin", "*");
+
+        try (PrintWriter writer = response.getWriter()) {
+            writer.println(new Gson().toJson("deleted user " + user));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void insert(HttpServletResponse response, String user, String IBAN) {
         controller.insertToCart(user, IBAN);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        response.addHeader("Access-Control-Allow-Origin", "*");
+
+        try (PrintWriter writer = response.getWriter()) {
+            writer.println(new Gson().toJson("inserted user " + user));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private void errorMessage(HttpServletResponse response, String message) {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
+        response.addHeader("Access-Control-Allow-Origin", "*");
 
         try (PrintWriter writer = response.getWriter()) {
             writer.println(new Gson().toJson(message));
